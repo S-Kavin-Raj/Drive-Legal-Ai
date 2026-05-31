@@ -190,56 +190,54 @@ export default function PlanTrip() {
   }, [])
 
   // Geolocation lookup
-  const handleGetCurrentLocation = async (quiet = false) => {
-    if (!quiet) setLocating(true)
-    console.log('[GPS] Requesting location permission via Capacitor...')
+  const handleGPSButton = async () => {
     try {
-      const permission = await Geolocation.requestPermissions()
-      console.log('[GPS] Permission:', permission)
+      alert('GPS Step 1: Starting...');
+      
+      const permission = await Geolocation.requestPermissions();
+      alert('GPS Step 2: Permission = ' + permission.location);
+      
+      if (permission.location === 'denied') {
+        alert('GPS Step 3: DENIED - go to phone settings and enable location');
+        return;
+      }
+      
+      alert('GPS Step 3: Getting position...');
       
       const position = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
-        timeout: 10000
-      })
+        timeout: 20000,
+        maximumAge: 0
+      });
       
-      const lat = position.coords.latitude
-      const lon = position.coords.longitude
-      console.log('[GPS] Coords:', lat, lon)
+      alert('GPS Step 4: Got coords! Lat=' + position.coords.latitude + ' Lng=' + position.coords.longitude);
       
-      let resolvedAddress = 'Coimbatore, Tamil Nadu'
-      try {
-        const addr = await reverseGeocode(lon, lat)
-        if (addr && addr.trim()) {
-          resolvedAddress = addr
-        }
-        console.log(`Address resolved: ${resolvedAddress}`)
-      } catch (geocodeErr) {
-        console.warn('[GPS] Geocode error, falling back:', geocodeErr)
-      }
+      const { latitude, longitude } = position.coords;
       
-      setFrom(resolvedAddress)
+      alert('GPS Step 5: Reverse geocoding...');
+      
+      const response = await fetch(
+        `https://api.openrouteservice.org/geocode/reverse?api_key=${import.meta.env.VITE_ORS_API_KEY}&point.lon=${longitude}&point.lat=${latitude}`
+      );
+      const data = await response.json();
+      
+      alert('GPS Step 6: Geocode status = ' + response.status);
+      
+      const address = data.features?.[0]?.properties?.label || `${latitude}, ${longitude}`;
+      
+      alert('GPS Step 7: Address = ' + address);
+      
+      setFrom(address);
       setSelectedSource({
-        name: resolvedAddress,
-        coordinates: [lon, lat]
-      })
-      if (!quiet) toast.success(`Acquired location: ${resolvedAddress}`)
-      setLocating(false)
+        name: address,
+        coordinates: [longitude, latitude]
+      });
+      setUserLocation({ lat: latitude, lng: longitude });
+      
     } catch (err) {
-      console.error('[GPS] Error:', err.message)
-      const errorMsg = 'GPS unavailable'
-      
-      const defaultFallbackName = 'Coimbatore, Tamil Nadu'
-      const defaultFallbackCoords = [76.9558, 11.0168]
-      setFrom(defaultFallbackName)
-      setSelectedSource({
-        name: defaultFallbackName,
-        coordinates: defaultFallbackCoords
-      })
-      
-      if (!quiet) toast.error(errorMsg)
-      setLocating(false)
+      alert('GPS ERROR: ' + err.message + ' | Code: ' + err.code);
     }
-  }
+  };
 
   // Load dynamically saved recent destinations
   useEffect(() => {
@@ -509,7 +507,7 @@ export default function PlanTrip() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => handleGetCurrentLocation(false)}
+                    onClick={handleGPSButton}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-[#8900F2]/10 border border-[#8900F2]/20 text-[#8900F2] active:scale-95 transition-transform flex-shrink-0"
                     title="Use Current Location"
                   >
