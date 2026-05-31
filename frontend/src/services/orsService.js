@@ -2,6 +2,32 @@ import axios from 'axios'
 
 export const ORS_API_KEY = import.meta.env.VITE_ORS_API_KEY || ''
 
+function buildOrsErrorMessage({ status, message, body }) {
+  const parts = []
+  if (status) parts.push(`ORS Error ${status}`)
+  if (message) parts.push(String(message).trim())
+  if (body) parts.push(`Response body: ${typeof body === 'string' ? body : JSON.stringify(body)}`)
+  return parts.length > 0 ? parts.join(' — ') : 'OpenRouteService request failed.'
+}
+
+function logOrsFailure(context, err) {
+  const status = err?.response?.status || err?.status || null
+  const responseBody = err?.response?.data ?? err?.body ?? null
+  const errorMessage = err?.response?.data?.error?.message || err?.response?.data?.error || err?.message || 'Unknown ORS error'
+
+  console.error(`[${context}] ORS request failed`, {
+    status,
+    errorMessage,
+    responseBody,
+  })
+
+  return buildOrsErrorMessage({
+    status,
+    message: errorMessage,
+    body: responseBody,
+  })
+}
+
 // 1. Fetch autocomplete place suggestions from OpenRouteService Geocoding API
 export async function fetchPlaceSuggestions(query) {
   if (!query || query.trim().length < 3) return []
@@ -24,7 +50,7 @@ export async function fetchPlaceSuggestions(query) {
       properties: feature.properties || {},
     }))
   } catch (err) {
-    console.error('ORS Geocoding API failed:', err.message)
+    logOrsFailure('ORS Geocoding API', err)
     return []
   }
 }
@@ -55,7 +81,7 @@ export async function fetchPlaceCoordinates(query) {
       raw: feature,
     }
   } catch (err) {
-    console.error('ORS Geocoding Coordinates API failed:', err.message)
-    throw err
+    const formattedMessage = logOrsFailure('ORS Geocoding Coordinates API', err)
+    throw new Error(formattedMessage)
   }
 }

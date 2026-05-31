@@ -145,12 +145,37 @@ async function handleRouteAnalysis(req, res) {
         data = null
       }
       if (!response.ok) {
-        console.error('[routeController] OpenRouteService responded with non-OK status', response.status, response.statusText, 'body:', text)
-        return res.status(502).json({ error: 'OpenRouteService API error', status: response.status, body: text })
+        const orsMessage = (() => {
+          try {
+            const parsed = JSON.parse(text)
+            return parsed?.error?.message || parsed?.error || parsed?.message || response.statusText || 'OpenRouteService API error'
+          } catch {
+            return response.statusText || 'OpenRouteService API error'
+          }
+        })()
+        console.error('[routeController] OpenRouteService responded with non-OK status', {
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage: orsMessage,
+          body: text,
+        })
+        return res.status(502).json({
+          error: `ORS Error ${response.status}: ${orsMessage} — Response body: ${text}`,
+          status: response.status,
+          orsError: orsMessage,
+          body: text,
+        })
       }
     } catch (fetchErr) {
-      console.error('[routeController] Error while calling OpenRouteService:', fetchErr && (fetchErr.stack || fetchErr.message))
-      return res.status(502).json({ error: 'Failed to contact OpenRouteService', details: fetchErr && fetchErr.message })
+      console.error('[routeController] Error while calling OpenRouteService:', fetchErr && (fetchErr.stack || fetchErr.message), {
+        status: fetchErr?.response?.status,
+        body: fetchErr?.response?.data,
+      })
+      return res.status(502).json({
+        error: `ORS Error ${fetchErr?.response?.status || 'unknown'}: ${fetchErr && fetchErr.message ? fetchErr.message : 'Failed to contact OpenRouteService'} — Response body: ${typeof fetchErr?.response?.data === 'string' ? fetchErr.response.data : JSON.stringify(fetchErr?.response?.data || null)}`,
+        status: fetchErr?.response?.status || null,
+        body: fetchErr?.response?.data || null,
+      })
     }
     const orsFeature = data.features?.[0]
     if (!orsFeature) {

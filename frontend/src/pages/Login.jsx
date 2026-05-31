@@ -16,6 +16,7 @@ export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const [loading, setLoading] = useState(false)
+  const showGoogleLogin = false // Google Login Temporarily Disabled
 
   const {
     register,
@@ -178,23 +179,27 @@ export default function Login() {
               </button>
             </div>
 
-            <div className="flex items-center gap-3 my-2">
-              <div className="flex-1 h-px bg-slate-850" />
-              <div className="text-xs text-slate-500 uppercase font-black tracking-widest">or</div>
-              <div className="flex-1 h-px bg-slate-850" />
-            </div>
+            {showGoogleLogin && (
+              <>
+                <div className="flex items-center gap-3 my-2">
+                  <div className="flex-1 h-px bg-slate-850" />
+                  <div className="text-xs text-slate-500 uppercase font-black tracking-widest">or</div>
+                  <div className="flex-1 h-px bg-slate-850" />
+                </div>
 
-            <div>
-              <button type="button" onClick={handleGoogleSignIn} disabled={loading} className="w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl border border-slate-800 bg-black/20 hover:bg-black/50 text-[#F8FAFC] font-semibold hover:border-slate-700 transition-all cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-4 h-4">
-                  <path fill="#EA4335" d="M24 9.5c3.9 0 6.7 1.7 8.3 3.1l6-6C34.3 3 29.5 1 24 1 14.9 1 7.3 6.6 4 14.7l7.9 6.1C13.6 15.4 18.2 9.5 24 9.5z"/>
-                  <path fill="#4285F4" d="M46.5 24.5c0-1.5-.1-2.6-.4-3.8H24v7.1h12.7c-.6 3.4-2.7 6.3-6 8.2l9.2 7.1C43.4 38.3 46.5 31.8 46.5 24.5z"/>
-                  <path fill="#FBBC05" d="M11.9 29.9c-.9-2.6-1.4-5.4-1.4-8.3s.5-5.7 1.4-8.3L4 7.1C1.4 11.3 0 15.9 0 21.6s1.4 10.3 4 14.5l7.9-6.2z"/>
-                  <path fill="#34A853" d="M24 46.9c6.5 0 12-2.1 16-5.8l-9.2-7.1c-2.6 1.8-6 2.9-9.3 2.9-5.8 0-10.4-5.9-11.6-13.7L4 33.9C7.3 41 14.9 46.9 24 46.9z"/>
-                </svg>
-                Continue with Google
-              </button>
-            </div>
+                <div>
+                  <button type="button" onClick={handleGoogleSignIn} disabled={loading} className="w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl border border-slate-800 bg-black/20 hover:bg-black/50 text-[#F8FAFC] font-semibold hover:border-slate-700 transition-all cursor-pointer">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-4 h-4">
+                      <path fill="#EA4335" d="M24 9.5c3.9 0 6.7 1.7 8.3 3.1l6-6C34.3 3 29.5 1 24 1 14.9 1 7.3 6.6 4 14.7l7.9 6.1C13.6 15.4 18.2 9.5 24 9.5z"/>
+                      <path fill="#4285F4" d="M46.5 24.5c0-1.5-.1-2.6-.4-3.8H24v7.1h12.7c-.6 3.4-2.7 6.3-6 8.2l9.2 7.1C43.4 38.3 46.5 31.8 46.5 24.5z"/>
+                      <path fill="#FBBC05" d="M11.9 29.9c-.9-2.6-1.4-5.4-1.4-8.3s.5-5.7 1.4-8.3L4 7.1C1.4 11.3 0 15.9 0 21.6s1.4 10.3 4 14.5l7.9-6.2z"/>
+                      <path fill="#34A853" d="M24 46.9c6.5 0 12-2.1 16-5.8l-9.2-7.1c-2.6 1.8-6 2.9-9.3 2.9-5.8 0-10.4-5.9-11.6-13.7L4 33.9C7.3 41 14.9 46.9 24 46.9z"/>
+                    </svg>
+                    Continue with Google
+                  </button>
+                </div>
+              </>
+            )}
           </form>
 
           <footer className="mt-6 text-center text-[12px] text-slate-500 font-semibold border-t border-slate-850 pt-4">
