@@ -160,16 +160,15 @@ app.get('/health', (req, res) => {
 
 app.get('/test-ors', async (req, res) => {
   try {
-    const ORS_API_KEY = process.env.ORS_API_KEY;
-    const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${encodeURIComponent(ORS_API_KEY)}&start=76.9558,11.0168&end=78.1198,9.9252`;
-    const response = await fetch(url);
-    const data = await response.json();
-    if (!response.ok) {
-      return res.json({ success: false, error: `ORS API responded with status ${response.status}`, detail: data });
-    }
-    res.json({ success: true, distance: data.features[0].properties.summary.distance });
+    const axios = require('axios');
+    const response = await axios.post(
+      'https://api.openrouteservice.org/v2/directions/driving-car',
+      { coordinates: [[76.9558, 11.0168], [78.1198, 9.9252]] },
+      { headers: { Authorization: process.env.ORS_API_KEY, 'Content-Type': 'application/json' } }
+    );
+    res.json({ success: true, distance: response.data.routes[0].summary.distance });
   } catch (err) {
-    res.json({ success: false, error: err.message });
+    res.json({ success: false, error: err.message, detail: err.response?.data });
   }
 });
 

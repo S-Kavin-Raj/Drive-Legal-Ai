@@ -94,7 +94,6 @@ export default function PlanTrip() {
   // Geolocation lookup
   const handleGetCurrentLocation = async (quiet = false) => {
     if (!quiet) setLocating(true)
-    
     console.log('[GPS] Requesting location permission via Capacitor...')
     try {
       const permission = await Geolocation.requestPermissions()
@@ -105,12 +104,13 @@ export default function PlanTrip() {
         timeout: 10000
       })
       
-      console.log('[GPS] Coords:', position.coords.latitude, position.coords.longitude)
-      const coords = [position.coords.longitude, position.coords.latitude]
+      const lat = position.coords.latitude
+      const lon = position.coords.longitude
+      console.log('[GPS] Coords:', lat, lon)
       
       let resolvedAddress = 'Coimbatore, Tamil Nadu'
       try {
-        const addr = await reverseGeocode(coords[0], coords[1])
+        const addr = await reverseGeocode(lon, lat)
         if (addr && addr.trim()) {
           resolvedAddress = addr
         }
@@ -122,7 +122,7 @@ export default function PlanTrip() {
       setFrom(resolvedAddress)
       setSelectedSource({
         name: resolvedAddress,
-        coordinates: coords
+        coordinates: [lon, lat]
       })
       if (!quiet) toast.success(`Acquired location: ${resolvedAddress}`)
       setLocating(false)
@@ -130,7 +130,6 @@ export default function PlanTrip() {
       console.error('[GPS] Error:', err.message)
       const errorMsg = 'GPS unavailable'
       
-      // Fallback UI defaults
       const defaultFallbackName = 'Coimbatore, Tamil Nadu'
       const defaultFallbackCoords = [76.9558, 11.0168]
       setFrom(defaultFallbackName)
