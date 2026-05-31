@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Polyline, useMap, Tooltip } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MapPin, X, ArrowRight, Navigation, RefreshCw, AlertTriangle, ShieldCheck } from 'lucide-react'
@@ -36,8 +36,15 @@ const userLocIcon = L.divIcon({
   iconAnchor: [12, 12]
 })
 
+const liveLocIcon = L.divIcon({
+  html: '<div class="w-6 h-6 rounded-full bg-[#3B82F6] border-2 border-white pulse-blue flex items-center justify-center text-[10px] font-black text-white shadow-lg shadow-blue-500/50">U</div>',
+  className: 'live-location-marker',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12]
+})
+
 // Sub-component to handle programmatically updating Leaflet bounds to fit the route
-function MapController({ polylineCoords, currentCoords }) {
+function MapController({ polylineCoords, currentCoords, userLocation }) {
   const map = useMap()
 
   useEffect(() => {
@@ -50,7 +57,9 @@ function MapController({ polylineCoords, currentCoords }) {
 
   useEffect(() => {
     if (!polylineCoords || polylineCoords.length === 0) {
-      if (currentCoords) {
+      if (userLocation) {
+        map.setView([userLocation.lat, userLocation.lng], 14, { animate: true })
+      } else if (currentCoords) {
         map.setView(currentCoords, 14, { animate: true })
       }
       return
@@ -61,7 +70,7 @@ function MapController({ polylineCoords, currentCoords }) {
     } catch (e) {
       console.warn('[MapController] Failed to fit bounds:', e)
     }
-  }, [polylineCoords, currentCoords, map])
+  }, [polylineCoords, currentCoords, userLocation, map])
 
   return null
 }
@@ -84,12 +93,101 @@ export default function PlanTrip() {
   const [loading, setLoading] = useState(false)
   const [locating, setLocating] = useState(false)
   const [error, setError] = useState(null)
+  const [gpsError, setGpsError] = useState(null)
+  const [userLocation, setUserLocation] = useState(null) // { lat, lng }
   const [activeRoute, setActiveRoute] = useState(null)
 
   const [recentDestinations, setRecentDestinations] = useState([])
 
   const sourceRef = useRef(null)
   const destRef = useRef(null)
+  const watchIdRef = useRef(null)
+  const isFirstLocationRef = useRef(true)
+
+  // Live Location Tracking Hook
+  useEffect(() => {
+    let active = true
+
+    const startLiveTracking = async () => {
+      try {
+        console.log('[GPS] Checking geolocation permissions...')
+        let permission = await Geolocation.checkPermissions()
+        if (permission.location !== 'granted') {
+          permission = await Geolocation.requestPermissions()
+        }
+
+        if (permission.location !== 'granted') {
+          console.warn('[GPS] Geolocation permission not granted.')
+          setGpsError('Location permission denied.')
+          return
+        }
+
+        console.log('[GPS] Starting live position tracking with watchPosition...')
+        const id = await Geolocation.watchPosition(
+          {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0
+          },
+          async (position, err) => {
+            if (err) {
+              console.error('[GPS] Tracking error:', err)
+              if (active) setGpsError(err.message || 'Error tracking location')
+              return
+            }
+            if (!position || !position.coords) return
+
+            const { latitude, longitude } = position.coords
+            console.log('[GPS] Live position update received:', latitude, longitude)
+
+            if (!active) return
+
+            setUserLocation({ lat: latitude, lng: longitude })
+            setGpsError(null)
+
+            // Auto-fill the source input on first successful location callback
+            if (isFirstLocationRef.current) {
+              isFirstLocationRef.current = false
+              
+              let resolvedAddress = 'Coimbatore, Tamil Nadu'
+              try {
+                const addr = await reverseGeocode(longitude, latitude)
+                if (addr && addr.trim()) {
+                  resolvedAddress = addr
+                }
+                console.log(`[GPS] Auto-resolved location: ${resolvedAddress}`)
+              } catch (geocodeErr) {
+                console.warn('[GPS] Reverse geocoding failed on startup, using Coimbatore fallback:', geocodeErr)
+              }
+
+              setFrom(resolvedAddress)
+              setSelectedSource({
+                name: resolvedAddress,
+                coordinates: [longitude, latitude]
+              })
+            }
+          }
+        )
+
+        watchIdRef.current = id
+      } catch (err) {
+        console.error('[GPS] Failed to start live tracking watcher:', err)
+        if (active) setGpsError(err.message || 'Failed to start tracking')
+      }
+    }
+
+    startLiveTracking()
+
+    return () => {
+      active = false
+      if (watchIdRef.current) {
+        console.log('[GPS] Clearing live position watcher with ID:', watchIdRef.current)
+        Geolocation.clearWatch({ id: watchIdRef.current }).catch(err => {
+          console.error('[GPS] Error clearing watch:', err)
+        })
+      }
+    }
+  }, [])
 
   // Geolocation lookup
   const handleGetCurrentLocation = async (quiet = false) => {
@@ -323,6 +421,13 @@ export default function PlanTrip() {
           {/* User Location Marker (if no active route has been analyzed yet) */}
           {!srcLatLng && currentCoords && <Marker position={currentCoords} icon={userLocIcon} />}
 
+          {/* Live Location Pulsing Blue Marker */}
+          {userLocation && (
+            <Marker position={[userLocation.lat, userLocation.lng]} icon={liveLocIcon}>
+              <Tooltip>You are here</Tooltip>
+            </Marker>
+          )}
+
           {/* Source and Destination Markers */}
           {srcLatLng && <Marker position={srcLatLng} icon={srcIcon} />}
           {destLatLng && <Marker position={destLatLng} icon={destIcon} />}
@@ -352,7 +457,7 @@ export default function PlanTrip() {
           )}
 
           {/* Dynamic map bound panner */}
-          <MapController polylineCoords={polylineCoords} currentCoords={currentCoords} />
+          <MapController polylineCoords={polylineCoords} currentCoords={currentCoords} userLocation={userLocation} />
         </MapContainer>
       </div>
 
