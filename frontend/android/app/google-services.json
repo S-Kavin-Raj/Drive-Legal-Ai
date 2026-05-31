@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "811029622672",
+    "project_id": "drive-legal-ai-bf028",
+    "storage_bucket": "drive-legal-ai-bf028.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:811029622672:android:33548b94564242623e8d15",
+        "android_client_info": {
+          "package_name": "com.drivelegal.ai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "811029622672-pmqt67cu012iafkenglkn4c8p8vs7266.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBw1etc8iLDEE1ZpaESCqB75zDGLArZ7d8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "811029622672-pmqt67cu012iafkenglkn4c8p8vs7266.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

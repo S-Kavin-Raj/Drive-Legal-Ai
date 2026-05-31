@@ -1,0 +1,112 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: Is the user authenticated?
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: Does request.auth.uid match the document ID?
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // Users collection:
+    // Only the authenticated owner can read/write their own profile
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Documents collection:
+    // Authenticated users can read/write their own documents
+    match /documents/{docId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // ChallanReports collection:
+    // Authenticated users can manage their own citations
+    match /challanReports/{reportId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // TrustScores & TrustScoreHistory:
+    // Owners can read their scores. Write permissions restricted to backend.
+    match /trustScores/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false; // Only backend service can update trust score
+    }
+
+    match /trustScoreHistory/{historyId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if false; // Only backend service logs history
+    }
+
+    // DrivingSessions collection:
+    // Authenticated users can log and view their telemetry sessions
+    match /drivingSessions/{sessionId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      // Events subcollection under each session
+      match /events/{eventId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+      }
+    }
+
+    // DrivingEvents root collection (backward compatibility):
+    match /drivingEvents/{eventId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ReadinessHistory collection:
+    // Tracks pre-drive compliance checks
+    match /readinessHistory/{historyId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Notifications collection:
+    // Authenticated users can read and mark their warnings as read
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // AssistantConversations collection:
+    // Authenticated users can record and view their traffic assistant chats
+    match /assistantConversations/{conversationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // TrafficRules collection:
+    // Public reference rules readable by all authenticated drivers
+    match /trafficRules/{ruleId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Admin seeded only
+    }
+
+    // TrafficZones unified collection (Phase 9):
+    // Zones data readable by active drivers
+    match /trafficZones/{zoneId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Admin seeded only
+    }
+
+    // Spatial Zones collections (legacy — backward compatibility):
+    match /schoolZones/{id} { allow read: if isAuthenticated(); }
+    match /hospitalZones/{id} { allow read: if isAuthenticated(); }
+    match /accidentZones/{id} { allow read: if isAuthenticated(); }
+    match /speedZones/{id} { allow read: if isAuthenticated(); }
+  }
+}

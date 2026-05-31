@@ -1,0 +1,124 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design Tokens ─────────────────────────────────────── */
+:root {
+  --purple:      #8900F2;
+  --purple-glow: rgba(137, 0, 242, 0.45);
+  --purple-dim:  rgba(137, 0, 242, 0.15);
+  --purple-edge: rgba(137, 0, 242, 0.30);
+  --bg:          #08090D;
+  --surface:     #0F1117;
+  --surface-2:   #161B26;
+  --muted:       #667085;
+  --text:        #F9FAFB;
+  --success:     #22C55E;
+  --warning:     #F59E0B;
+  --danger:      #EF4444;
+}
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Leaflet fix for dark map tiles */
+  .leaflet-container {
+    background: #08090D !important;
+  }
+  .leaflet-tile {
+    filter: brightness(0.92) saturate(1.1);
+  }
+}
+
+@layer utilities {
+  /* Scrollbar hide */
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Purple neon glow effects */
+  .glow-purple {
+    box-shadow: 0 0 20px var(--purple-glow), 0 0 40px rgba(137,0,242,0.2);
+  }
+  .glow-purple-sm {
+    box-shadow: 0 0 10px var(--purple-glow);
+  }
+  .text-glow-purple {
+    text-shadow: 0 0 20px var(--purple-glow);
+  }
+
+  /* Glass morphism */
+  .glass {
+    background: rgba(15, 17, 23, 0.80);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(137, 0, 242, 0.12);
+  }
+  .glass-strong {
+    background: rgba(15, 17, 23, 0.92);
+    backdrop-filter: blur(32px) saturate(200%);
+    -webkit-backdrop-filter: blur(32px) saturate(200%);
+    border: 1px solid rgba(137, 0, 242, 0.18);
+  }
+
+  /* Bottom sheet shadow */
+  .sheet-shadow {
+    box-shadow: 0 -20px 60px rgba(0,0,0,0.6), 0 -4px 20px rgba(137,0,242,0.08);
+  }
+
+  /* Micro pulse animation for live indicators */
+  .pulse-dot {
+    animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+  }
+
+  @keyframes pulse-ring {
+    0%   { box-shadow: 0 0 0 0 var(--purple-glow); }
+    70%  { box-shadow: 0 0 0 8px rgba(137,0,242,0); }
+    100% { box-shadow: 0 0 0 0 rgba(137,0,242,0); }
+  }
+
+  /* Slide up entrance */
+  .slide-up {
+    animation: slideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(32px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+
+  /* Fade in */
+  .fade-in {
+    animation: fadeIn 0.35s ease both;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* Map overlay gradient */
+  .map-gradient-bottom {
+    background: linear-gradient(to top, var(--bg) 0%, rgba(8,9,13,0.85) 30%, transparent 70%);
+  }
+  .map-gradient-top {
+    background: linear-gradient(to bottom, var(--bg) 0%, rgba(8,9,13,0.6) 30%, transparent 70%);
+  }
+}
