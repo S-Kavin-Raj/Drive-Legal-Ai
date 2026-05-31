@@ -8,6 +8,7 @@ import { fetchPlaceSuggestions, reverseGeocode } from '../services/orsService'
 import { analyzeRoute } from '../services/routeService'
 import { useAuth } from '../hooks/useAuth'
 import { useComplianceProfile } from '../hooks/useComplianceProfile'
+import { getAccessToken } from '../services/sessionStore'
 import toast from 'react-hot-toast'
 
 const DEFAULT_CENTER = [11.0168, 76.9558] // Coimbatore / Tiruppur center region
@@ -125,15 +126,15 @@ export default function PlanTrip() {
       },
       (err) => {
         console.warn('Geolocation error:', err)
-        let errorMsg = 'Failed to detect current location'
+        let errorMsg = 'GPS unavailable'
         if (err.code === 1) {
           errorMsg = 'Location permission denied'
           console.error('[GPS Error] Location permission denied')
         } else if (err.code === 2) {
-          errorMsg = 'GPS is disabled or unavailable'
+          errorMsg = 'GPS unavailable'
           console.error('[GPS Error] GPS is disabled or unavailable')
         } else if (err.code === 3) {
-          errorMsg = 'Location detection timed out'
+          errorMsg = 'GPS unavailable'
           console.error('[GPS Error] Location detection timed out')
         } else {
           console.error('[GPS Error] Network or system error')
@@ -154,11 +155,6 @@ export default function PlanTrip() {
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
     )
   }
-
-  // Quietly attempt geolocation autofill on mount
-  useEffect(() => {
-    handleGetCurrentLocation(true)
-  }, [])
 
   // Load dynamically saved recent destinations
   useEffect(() => {
@@ -245,6 +241,14 @@ export default function PlanTrip() {
   async function handleAnalyse() {
     if (!from.trim() || !to.trim()) {
       toast.error('Source and destination coordinates are required')
+      return
+    }
+
+    const token = getAccessToken()
+    console.log('[PlanTrip] Auth token:', token ? 'present' : 'missing')
+    if (!token) {
+      toast.error('Session expired. Please log in again.')
+      setError('Session expired. Please log in again.')
       return
     }
 
@@ -414,10 +418,11 @@ export default function PlanTrip() {
                   <button
                     type="button"
                     onClick={() => handleGetCurrentLocation(false)}
-                    className="p-1 active:scale-75 transition-transform flex-shrink-0"
-                    title="Get Current Location"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-[#8900F2]/10 border border-[#8900F2]/20 text-[#8900F2] active:scale-95 transition-transform flex-shrink-0"
+                    title="Use Current Location"
                   >
-                    <Navigation size={14} className="text-[#8900F2]" />
+                    <Navigation size={10} />
+                    <span>GPS</span>
                   </button>
                 )}
                 {from && (
