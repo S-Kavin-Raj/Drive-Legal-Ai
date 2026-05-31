@@ -158,6 +158,21 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'drivelegal-backend' })
 })
 
+app.get('/test-ors', async (req, res) => {
+  try {
+    const ORS_API_KEY = process.env.ORS_API_KEY;
+    const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${encodeURIComponent(ORS_API_KEY)}&start=76.9558,11.0168&end=78.1198,9.9252`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!response.ok) {
+      return res.json({ success: false, error: `ORS API responded with status ${response.status}`, detail: data });
+    }
+    res.json({ success: true, distance: data.features[0].properties.summary.distance });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
 app.get('/api/sample', (req, res) => {
   res.json({ message: 'This is a sample backend endpoint for DriveLegal AI.' })
 })

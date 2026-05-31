@@ -9,6 +9,7 @@ import { analyzeRoute } from '../services/routeService'
 import { useAuth } from '../hooks/useAuth'
 import { useComplianceProfile } from '../hooks/useComplianceProfile'
 import { getAccessToken } from '../services/sessionStore'
+import { Geolocation } from '@capacitor/geolocation'
 import toast from 'react-hot-toast'
 
 const DEFAULT_CENTER = [11.0168, 76.9558] // Coimbatore / Tiruppur center region
@@ -92,68 +93,55 @@ export default function PlanTrip() {
 
   // Geolocation lookup
   const handleGetCurrentLocation = async (quiet = false) => {
-    if (!navigator.geolocation) {
-      if (!quiet) toast.error('Geolocation is not supported by your browser')
-      return
-    }
     if (!quiet) setLocating(true)
     
-    console.log('[GPS] Requesting location permission...')
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        console.log('Location permission granted')
-        const coords = [pos.coords.longitude, pos.coords.latitude]
-        console.log(`Coordinates acquired: ${coords[1]}, ${coords[0]}`)
-        
-        let resolvedAddress = 'Coimbatore, Tamil Nadu'
-        try {
-          const addr = await reverseGeocode(coords[0], coords[1])
-          if (addr && addr.trim()) {
-            resolvedAddress = addr
-          }
-          console.log(`Address resolved: ${resolvedAddress}`)
-        } catch (geocodeErr) {
-          console.warn('[GPS] Geocode error, falling back:', geocodeErr)
+    console.log('[GPS] Requesting location permission via Capacitor...')
+    try {
+      const permission = await Geolocation.requestPermissions()
+      console.log('[GPS] Permission:', permission)
+      
+      const position = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 10000
+      })
+      
+      console.log('[GPS] Coords:', position.coords.latitude, position.coords.longitude)
+      const coords = [position.coords.longitude, position.coords.latitude]
+      
+      let resolvedAddress = 'Coimbatore, Tamil Nadu'
+      try {
+        const addr = await reverseGeocode(coords[0], coords[1])
+        if (addr && addr.trim()) {
+          resolvedAddress = addr
         }
-        
-        setFrom(resolvedAddress)
-        setSelectedSource({
-          name: resolvedAddress,
-          coordinates: coords
-        })
-        if (!quiet) toast.success(`Acquired location: ${resolvedAddress}`)
-        setLocating(false)
-      },
-      (err) => {
-        console.warn('Geolocation error:', err)
-        let errorMsg = 'GPS unavailable'
-        if (err.code === 1) {
-          errorMsg = 'Location permission denied'
-          console.error('[GPS Error] Location permission denied')
-        } else if (err.code === 2) {
-          errorMsg = 'GPS unavailable'
-          console.error('[GPS Error] GPS is disabled or unavailable')
-        } else if (err.code === 3) {
-          errorMsg = 'GPS unavailable'
-          console.error('[GPS Error] Location detection timed out')
-        } else {
-          console.error('[GPS Error] Network or system error')
-        }
-        
-        // Fallback UI defaults
-        const defaultFallbackName = 'Coimbatore, Tamil Nadu'
-        const defaultFallbackCoords = [76.9558, 11.0168]
-        setFrom(defaultFallbackName)
-        setSelectedSource({
-          name: defaultFallbackName,
-          coordinates: defaultFallbackCoords
-        })
-        
-        if (!quiet) toast.error(errorMsg)
-        setLocating(false)
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
-    )
+        console.log(`Address resolved: ${resolvedAddress}`)
+      } catch (geocodeErr) {
+        console.warn('[GPS] Geocode error, falling back:', geocodeErr)
+      }
+      
+      setFrom(resolvedAddress)
+      setSelectedSource({
+        name: resolvedAddress,
+        coordinates: coords
+      })
+      if (!quiet) toast.success(`Acquired location: ${resolvedAddress}`)
+      setLocating(false)
+    } catch (err) {
+      console.error('[GPS] Error:', err.message)
+      const errorMsg = 'GPS unavailable'
+      
+      // Fallback UI defaults
+      const defaultFallbackName = 'Coimbatore, Tamil Nadu'
+      const defaultFallbackCoords = [76.9558, 11.0168]
+      setFrom(defaultFallbackName)
+      setSelectedSource({
+        name: defaultFallbackName,
+        coordinates: defaultFallbackCoords
+      })
+      
+      if (!quiet) toast.error(errorMsg)
+      setLocating(false)
+    }
   }
 
   // Load dynamically saved recent destinations
