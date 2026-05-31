@@ -1,5 +1,8 @@
 {
   "appId": "com.drivelegal.ai",
   "appName": "DriveLegal AI",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "allowNavigation": ["drive-legal-ai-production.up.railway.app"]
+  }
 }

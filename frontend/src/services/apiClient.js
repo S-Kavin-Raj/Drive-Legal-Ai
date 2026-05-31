@@ -1,10 +1,9 @@
 import axios from 'axios'
 import { clearSession, getAccessToken, isSessionExpired, readSession } from './sessionStore'
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+import { API_BASE_URL } from './apiConfig'
 
 export const apiClient = axios.create({
-  baseURL: API_BASE,
+  baseURL: API_BASE_URL,
 })
 
 
