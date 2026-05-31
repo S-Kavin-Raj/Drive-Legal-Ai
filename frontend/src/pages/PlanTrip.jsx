@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MapPin, X, ArrowRight, Navigation, RefreshCw, AlertTriangle, ShieldCheck } from 'lucide-react'
-import { fetchPlaceSuggestions } from '../services/orsService'
+import { fetchPlaceSuggestions, reverseGeocode } from '../services/orsService'
 import { analyzeRoute } from '../services/routeService'
 import { useAuth } from '../hooks/useAuth'
 import { useComplianceProfile } from '../hooks/useComplianceProfile'
@@ -27,19 +27,39 @@ const destIcon = L.divIcon({
   iconAnchor: [12, 12]
 })
 
+const userLocIcon = L.divIcon({
+  html: '<div class="w-6 h-6 rounded-full bg-[#10B981] border-2 border-white flex items-center justify-center text-[10px] font-black text-white shadow-lg shadow-emerald-500/40">U</div>',
+  className: 'custom-map-marker',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12]
+})
+
 // Sub-component to handle programmatically updating Leaflet bounds to fit the route
-function MapController({ polylineCoords }) {
+function MapController({ polylineCoords, currentCoords }) {
   const map = useMap()
 
   useEffect(() => {
-    if (!polylineCoords || polylineCoords.length === 0) return
+    if (!map) return
+    const timer = setTimeout(() => {
+      map.invalidateSize()
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [map])
+
+  useEffect(() => {
+    if (!polylineCoords || polylineCoords.length === 0) {
+      if (currentCoords) {
+        map.setView(currentCoords, 14, { animate: true })
+      }
+      return
+    }
     try {
       const bounds = L.latLngBounds(polylineCoords)
       map.fitBounds(bounds, { padding: [60, 60], animate: true, duration: 1.2 })
     } catch (e) {
       console.warn('[MapController] Failed to fit bounds:', e)
     }
-  }, [polylineCoords, map])
+  }, [polylineCoords, currentCoords, map])
 
   return null
 }
@@ -60,11 +80,113 @@ export default function PlanTrip() {
 
   const [activeInput, setActiveInput] = useState(null) // 'source' or 'dest'
   const [loading, setLoading] = useState(false)
+  const [locating, setLocating] = useState(false)
   const [error, setError] = useState(null)
   const [activeRoute, setActiveRoute] = useState(null)
 
+  const [recentDestinations, setRecentDestinations] = useState([])
+
   const sourceRef = useRef(null)
   const destRef = useRef(null)
+
+  // Geolocation lookup
+  const handleGetCurrentLocation = async (quiet = false) => {
+    if (!navigator.geolocation) {
+      if (!quiet) toast.error('Geolocation is not supported by your browser')
+      return
+    }
+    if (!quiet) setLocating(true)
+    
+    console.log('[GPS] Requesting location permission...')
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        console.log('Location permission granted')
+        const coords = [pos.coords.longitude, pos.coords.latitude]
+        console.log(`Coordinates acquired: ${coords[1]}, ${coords[0]}`)
+        
+        let resolvedAddress = 'Coimbatore, Tamil Nadu'
+        try {
+          const addr = await reverseGeocode(coords[0], coords[1])
+          if (addr && addr.trim()) {
+            resolvedAddress = addr
+          }
+          console.log(`Address resolved: ${resolvedAddress}`)
+        } catch (geocodeErr) {
+          console.warn('[GPS] Geocode error, falling back:', geocodeErr)
+        }
+        
+        setFrom(resolvedAddress)
+        setSelectedSource({
+          name: resolvedAddress,
+          coordinates: coords
+        })
+        if (!quiet) toast.success(`Acquired location: ${resolvedAddress}`)
+        setLocating(false)
+      },
+      (err) => {
+        console.warn('Geolocation error:', err)
+        let errorMsg = 'Failed to detect current location'
+        if (err.code === 1) {
+          errorMsg = 'Location permission denied'
+          console.error('[GPS Error] Location permission denied')
+        } else if (err.code === 2) {
+          errorMsg = 'GPS is disabled or unavailable'
+          console.error('[GPS Error] GPS is disabled or unavailable')
+        } else if (err.code === 3) {
+          errorMsg = 'Location detection timed out'
+          console.error('[GPS Error] Location detection timed out')
+        } else {
+          console.error('[GPS Error] Network or system error')
+        }
+        
+        // Fallback UI defaults
+        const defaultFallbackName = 'Coimbatore, Tamil Nadu'
+        const defaultFallbackCoords = [76.9558, 11.0168]
+        setFrom(defaultFallbackName)
+        setSelectedSource({
+          name: defaultFallbackName,
+          coordinates: defaultFallbackCoords
+        })
+        
+        if (!quiet) toast.error(errorMsg)
+        setLocating(false)
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
+    )
+  }
+
+  // Quietly attempt geolocation autofill on mount
+  useEffect(() => {
+    handleGetCurrentLocation(true)
+  }, [])
+
+  // Load dynamically saved recent destinations
+  useEffect(() => {
+    const stored = localStorage.getItem('drivelegal:recent_destinations')
+    if (stored) {
+      try {
+        setRecentDestinations(JSON.parse(stored))
+      } catch (e) {
+        console.warn('Failed to parse recents', e)
+      }
+    } else {
+      const defaults = [
+        { name: 'Chennai Central', coordinates: [80.2707, 13.0827], sub: '328 km · ~5h 20m' },
+        { name: 'Madurai Airport', coordinates: [78.0934, 9.8345], sub: '141 km · ~2h 35m' },
+        { name: 'Tiruppur SIPCOT', coordinates: [77.3411, 11.1085], sub: '38 km · ~48m' }
+      ]
+      setRecentDestinations(defaults)
+    }
+  }, [])
+
+  const addRecentDestination = (name, coordinates) => {
+    if (!name || !coordinates) return
+    const subtext = 'Custom Location'
+    const newDest = { name, coordinates, sub: subtext }
+    const updated = [newDest, ...recentDestinations.filter(d => d.name !== name)].slice(0, 5)
+    setRecentDestinations(updated)
+    localStorage.setItem('drivelegal:recent_destinations', JSON.stringify(updated))
+  }
 
   // Autocomplete place suggestion for Source Location
   useEffect(() => {
@@ -146,11 +268,40 @@ export default function PlanTrip() {
 
       setActiveRoute(result)
       toast.success('Route analyzed successfully')
+
+      // Save destination to dynamic recents
+      if (selectedDest) {
+        addRecentDestination(selectedDest.name, selectedDest.coordinates)
+      } else if (to) {
+        if (result.geometry.coordinates && result.geometry.coordinates.length > 0) {
+          const lastCoord = result.geometry.coordinates[result.geometry.coordinates.length - 1]
+          addRecentDestination(to, lastCoord)
+        }
+      }
     } catch (err) {
       console.error('[PlanTrip] Route analysis failed:', err)
-      const msg = err?.response?.data?.error || err.message || 'Route analysis failed'
-      setError(msg)
-      toast.error(msg)
+      
+      let errorMsg = 'Failed to analyze route. Please try again.'
+      const serverError = err?.response?.data?.error || ''
+      const serverStatus = err?.response?.status
+      const errorText = String(err.message || '').toLowerCase()
+      
+      if (errorText.includes('network') || errorText.includes('timeout') || serverStatus === 502 || serverStatus === 504) {
+        errorMsg = 'Network error: Cannot reach routing servers. Check your connection.'
+      } else if (serverError.includes('429') || errorText.includes('429') || serverError.toLowerCase().includes('rate limit')) {
+        errorMsg = 'ORS rate limit exceeded: Too many requests. Please wait a moment.'
+      } else if (serverError.toLowerCase().includes('geocode') || serverError.toLowerCase().includes('unable to geocode') || errorText.includes('geocode')) {
+        errorMsg = 'Invalid location: One or both addresses could not be geocoded.'
+      } else if (serverError.toLowerCase().includes('no driving route') || serverError.toLowerCase().includes('route not found') || serverError.toLowerCase().includes('404') || serverStatus === 404) {
+        errorMsg = 'Route not found: No drivable path exists between these points.'
+      } else if (serverError) {
+        errorMsg = serverError
+      } else if (err.message) {
+        errorMsg = err.message
+      }
+      
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -164,6 +315,7 @@ export default function PlanTrip() {
 
   const srcLatLng = polylineCoords[0] || null
   const destLatLng = polylineCoords[polylineCoords.length - 1] || null
+  const currentCoords = selectedSource?.coordinates ? [selectedSource.coordinates[1], selectedSource.coordinates[0]] : null
 
   return (
     <div className="relative w-full h-[100dvh] overflow-hidden" style={{ background: 'var(--bg)' }}>
@@ -177,6 +329,9 @@ export default function PlanTrip() {
         >
           <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
           
+          {/* User Location Marker (if no active route has been analyzed yet) */}
+          {!srcLatLng && currentCoords && <Marker position={currentCoords} icon={userLocIcon} />}
+
           {/* Source and Destination Markers */}
           {srcLatLng && <Marker position={srcLatLng} icon={srcIcon} />}
           {destLatLng && <Marker position={destLatLng} icon={destIcon} />}
@@ -206,7 +361,7 @@ export default function PlanTrip() {
           )}
 
           {/* Dynamic map bound panner */}
-          <MapController polylineCoords={polylineCoords} />
+          <MapController polylineCoords={polylineCoords} currentCoords={currentCoords} />
         </MapContainer>
       </div>
 
@@ -253,6 +408,18 @@ export default function PlanTrip() {
                   className="flex-1 bg-transparent outline-none text-[14px] font-semibold placeholder:font-normal"
                   style={{ color: 'var(--text)', caretColor: '#8900F2' }}
                 />
+                {locating ? (
+                  <RefreshCw size={14} className="animate-spin text-[#8900F2] flex-shrink-0" />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleGetCurrentLocation(false)}
+                    className="p-1 active:scale-75 transition-transform flex-shrink-0"
+                    title="Get Current Location"
+                  >
+                    <Navigation size={14} className="text-[#8900F2]" />
+                  </button>
+                )}
                 {from && (
                   <button onClick={() => { setFrom(''); setSelectedSource(null); }} className="active:scale-90 transition-transform">
                     <X size={14} style={{ color: 'var(--muted)' }} />
@@ -336,19 +503,19 @@ export default function PlanTrip() {
           {/* Analyse Button */}
           <button
             onClick={handleAnalyse}
-            disabled={!canAnalyse}
+            disabled={!canAnalyse || loading}
             className="w-full py-3.5 rounded-2xl font-bold text-[14px] flex items-center justify-center gap-2 mt-1 active:scale-[0.98] transition-all disabled:opacity-60 disabled:pointer-events-none cursor-pointer"
             style={{
-              background: canAnalyse
+              background: canAnalyse && !loading
                 ? 'linear-gradient(135deg, #8900F2 0%, #6B00C2 100%)'
                 : 'rgba(137,0,242,0.08)',
-              boxShadow: canAnalyse ? '0 4px 20px rgba(137,0,242,0.45)' : 'none',
-              border: canAnalyse ? 'none' : '1px solid rgba(137,0,242,0.15)',
-              color: canAnalyse ? '#FFF' : 'rgba(137,0,242,0.4)',
+              boxShadow: canAnalyse && !loading ? '0 4px 20px rgba(137,0,242,0.45)' : 'none',
+              border: canAnalyse && !loading ? 'none' : '1px solid rgba(137,0,242,0.15)',
+              color: canAnalyse && !loading ? '#FFF' : 'rgba(137,0,242,0.4)',
             }}
           >
             {loading ? <RefreshCw size={15} className="animate-spin text-[#8900F2]" /> : <ArrowRight size={16} />}
-            <span>{loading ? 'Analyzing Route Vectors...' : 'Analyse Route'}</span>
+            <span>{loading ? 'Analysing Route...' : 'Analyse Route'}</span>
           </button>
         </div>
       </div>
@@ -358,32 +525,74 @@ export default function PlanTrip() {
         {loading && (
           <div className="glass rounded-3xl p-6 text-center slide-up flex flex-col items-center justify-center gap-3">
             <RefreshCw size={24} className="animate-spin text-[#8900F2]" />
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Evaluating Route Risks & Guidelines...</p>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Analysing Route...</p>
           </div>
         )}
 
         {error && !loading && (
-          <div className="glass rounded-3xl p-5 slide-up flex items-start gap-3" style={{ border: '1px solid rgba(239,68,68,0.25)' }}>
-            <AlertTriangle size={18} className="text-[#EF4444] mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-bold text-[13px] text-[#EF4444]">Route Analysis Failed</p>
-              <p className="text-[11px] text-slate-400 mt-0.5 leading-normal">{error}</p>
+          <div className="glass rounded-3xl p-5 slide-up flex flex-col gap-3" style={{ border: '1px solid rgba(239,68,68,0.25)' }}>
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={18} className="text-[#EF4444] mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-bold text-[13px] text-[#EF4444]">Route Analysis Failed</p>
+                <p className="text-[11px] text-slate-400 mt-0.5 leading-normal">{error}</p>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="px-4 py-2 rounded-xl text-[10px] bg-slate-900 border border-slate-800 text-slate-400 font-bold uppercase tracking-wider active:scale-95 transition-all cursor-pointer"
+              >
+                Dismiss
+              </button>
+              <button
+                type="button"
+                onClick={handleAnalyse}
+                className="px-4 py-2 rounded-xl text-[10px] bg-[#8900F2] text-white font-bold uppercase tracking-wider active:scale-95 transition-all shadow-md shadow-[#8900F2]/30 cursor-pointer"
+              >
+                Retry Analysis
+              </button>
             </div>
           </div>
         )}
 
         {/* Route Details Panel */}
         {activeRoute && !loading && !error && (
-          <div className="glass-strong rounded-3xl p-4 slide-up space-y-4">
+          <div className="glass-strong rounded-3xl p-4 slide-up space-y-4 max-h-[75vh] overflow-y-auto">
+            {/* Premium Route Summary Card */}
+            <div className="p-4 rounded-2xl text-left bg-slate-950/60 border border-[#8900F2]/10 space-y-3 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-[#8900F2]/5 rounded-full blur-xl pointer-events-none" />
+              <h4 className="text-[9px] font-black tracking-widest uppercase text-[#8900F2]">JOURNEY SUMMARY</h4>
+              
+              <div className="flex flex-col gap-2 relative pl-6 mt-1">
+                <div className="absolute left-[7px] top-[7px] bottom-[7px] w-px border-l border-dashed border-slate-800" />
+                
+                {/* Source */}
+                <div className="relative flex flex-col">
+                  <div className="absolute left-[-23px] top-[2px] w-3 h-3 rounded-full bg-[#3B82F6] border-2 border-slate-900 shadow shadow-blue-500/50" />
+                  <span className="text-[12px] font-bold text-slate-200 line-clamp-1">{from || 'Current Location'}</span>
+                  <span className="text-[8px] text-slate-500 font-black uppercase tracking-wider">Start Position</span>
+                </div>
+                
+                {/* Destination */}
+                <div className="relative flex flex-col">
+                  <div className="absolute left-[-23px] top-[2px] w-3 h-3 rounded-full bg-[#8900F2] border-2 border-slate-900 shadow shadow-purple-500/50" />
+                  <span className="text-[12px] font-bold text-slate-200 line-clamp-1">{to || 'Destination'}</span>
+                  <span className="text-[8px] text-slate-500 font-black uppercase tracking-wider">End Destination</span>
+                </div>
+              </div>
+            </div>
+
             {/* Quick Metrics */}
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="p-2 rounded-2xl bg-[#8900F2]/10 border border-[#8900F2]/15">
-                <span className="block font-black text-lg text-white">{activeRoute.distanceKm}</span>
-                <span className="text-[9px] font-bold text-slate-450 tracking-wider uppercase">Distance (KM)</span>
+                <span className="block font-black text-lg text-white">{activeRoute.distanceKm} km</span>
+                <span className="text-[9px] font-bold text-slate-450 tracking-wider uppercase">Distance</span>
               </div>
               <div className="p-2 rounded-2xl bg-[#8900F2]/10 border border-[#8900F2]/15">
-                <span className="block font-black text-lg text-white">{activeRoute.durationMinutes}</span>
-                <span className="text-[9px] font-bold text-slate-450 tracking-wider uppercase">Duration (MIN)</span>
+                <span className="block font-black text-lg text-white">~{activeRoute.durationMinutes}m</span>
+                <span className="text-[9px] font-bold text-slate-450 tracking-wider uppercase">ETA</span>
               </div>
               <div
                 className="p-2 rounded-2xl border"
@@ -401,6 +610,24 @@ export default function PlanTrip() {
                 <span className="text-[9px] font-bold text-slate-450 tracking-wider uppercase">Risk Score</span>
               </div>
             </div>
+
+            {/* Dynamic Traffic and Weather Status */}
+            {(activeRoute.trafficStatus || activeRoute.weatherStatus) && (
+              <div className="grid grid-cols-2 gap-3 text-center">
+                {activeRoute.trafficStatus && (
+                  <div className="p-2 rounded-2xl bg-[#8900F2]/10 border border-[#8900F2]/15">
+                    <span className="block font-black text-[13px] text-[#22C55E]">{activeRoute.trafficStatus}</span>
+                    <span className="text-[8px] font-bold text-slate-450 tracking-wider uppercase">Traffic Status</span>
+                  </div>
+                )}
+                {activeRoute.weatherStatus && (
+                  <div className="p-2 rounded-2xl bg-[#8900F2]/10 border border-[#8900F2]/15">
+                    <span className="block font-black text-[13px] text-white">{activeRoute.weatherStatus}</span>
+                    <span className="text-[8px] font-bold text-slate-450 tracking-wider uppercase">Weather Status</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Route Intelligence Card (Step 8) */}
             <div 
@@ -483,10 +710,11 @@ export default function PlanTrip() {
             {/* CTAs */}
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={() => setActiveRoute(null)}
-                className="px-4 py-4 rounded-2xl font-bold text-xs border border-slate-800 text-slate-400 active:scale-95 transition-transform"
+                className="px-4 py-4 rounded-2xl font-bold text-xs border border-slate-800 text-slate-400 active:scale-95 transition-transform cursor-pointer"
               >
-                Clear
+                Clear Route
               </button>
               <button
                 onClick={() => {
@@ -511,23 +739,22 @@ export default function PlanTrip() {
         )}
 
         {/* Default Recent Destinations */}
-        {!activeRoute && !loading && !error && (
+        {!activeRoute && !loading && !error && recentDestinations.length > 0 && (
           <div className="glass rounded-3xl p-4 slide-up">
             <p className="text-[11px] font-black uppercase tracking-[0.15em] mb-3"
                style={{ color: '#8900F2' }}>
               Recent Destinations
             </p>
             <div className="space-y-3">
-              {[
-                { name: 'Chennai Central', sub: '328 km · ~5h 20m' },
-                { name: 'Madurai Airport', sub: '141 km · ~2h 35m' },
-                { name: 'Tiruppur SIPCOT', sub: '38 km · ~48m' },
-              ].map((dest) => (
+              {recentDestinations.map((dest) => (
                 <button
                   key={dest.name}
                   onClick={() => {
                     setTo(dest.name)
-                    setSelectedDest(null)
+                    setSelectedDest(dest.coordinates ? {
+                      name: dest.name,
+                      coordinates: dest.coordinates
+                    } : null)
                   }}
                   className="w-full flex items-center gap-3 active:opacity-70 transition-opacity"
                 >

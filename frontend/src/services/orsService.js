@@ -85,3 +85,24 @@ export async function fetchPlaceCoordinates(query) {
     throw new Error(formattedMessage)
   }
 }
+
+// 3. Reverse geocode coordinates to a address name using OpenRouteService Geocoding Reverse API
+export async function reverseGeocode(lon, lat) {
+  if (!ORS_API_KEY) {
+    console.error('VITE_ORS_API_KEY is missing.')
+    return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+  }
+
+  try {
+    const url = `https://api.openrouteservice.org/geocode/reverse?api_key=${encodeURIComponent(ORS_API_KEY)}&point.lon=${lon}&point.lat=${lat}&size=1`
+    const res = await axios.get(url)
+    const feature = res.data?.features?.[0]
+    
+    // Resolve address from properties
+    const label = feature?.properties?.label || feature?.properties?.name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+    return label
+  } catch (err) {
+    console.error('[ORS Reverse Geocode] API failure:', err)
+    return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+  }
+}
