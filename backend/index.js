@@ -1,5 +1,7 @@
 require('dotenv').config()
 
+console.log(`Gemini API key detected: ${process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== '' ? 'YES' : 'NO'}`)
+
 const { seedTrafficRules } = require('./services/seedService')
 seedTrafficRules().catch(err => console.error('[Startup] Seeding failed:', err))
 

@@ -119232,5 +119232,127 @@
       "challansUnderstoodCount": 0,
       "timestamp": "2026-05-29T15:02:01.401Z"
     }
+  },
+  "schoolZones": {
+    "qmr8iv1n": {
+      "name": "Coimbatore International School Zone",
+      "coordinates": [
+        77.0601,
+        11.0284
+      ],
+      "speedLimitKmh": 30,
+      "createdAt": "2026-05-31T08:31:31.955Z"
+    },
+    "e8cy5pwl": {
+      "name": "Tiruppur Public School Crossing",
+      "coordinates": [
+        77.345,
+        11.115
+      ],
+      "speedLimitKmh": 25,
+      "createdAt": "2026-05-31T08:31:31.967Z"
+    },
+    "t6pl9t7b": {
+      "name": "Madurai Central Academy Zone",
+      "coordinates": [
+        78.122,
+        9.93
+      ],
+      "speedLimitKmh": 30,
+      "createdAt": "2026-05-31T08:31:31.981Z"
+    }
+  },
+  "hospitalZones": {
+    "y8h97xde": {
+      "name": "KG General Hospital Silent Area",
+      "coordinates": [
+        76.968,
+        10.998
+      ],
+      "speedLimitKmh": 30,
+      "createdAt": "2026-05-31T08:31:31.995Z"
+    },
+    "eaw6pdpx": {
+      "name": "Tiruppur Government Medical Hospital",
+      "coordinates": [
+        77.339,
+        11.105
+      ],
+      "speedLimitKmh": 30,
+      "createdAt": "2026-05-31T08:31:32.008Z"
+    },
+    "fen04lpz": {
+      "name": "Madurai Apollo Super-specialty Hospital",
+      "coordinates": [
+        78.145,
+        9.928
+      ],
+      "speedLimitKmh": 35,
+      "createdAt": "2026-05-31T08:31:32.021Z"
+    }
+  },
+  "accidentZones": {
+    "c11b96ca": {
+      "name": "Avinashi Road Blindspot Junction",
+      "coordinates": [
+        77.02,
+        11.015
+      ],
+      "riskLevel": "High",
+      "description": "Frequent lane-merging collisions reported due to fast flyover descent.",
+      "createdAt": "2026-05-31T08:31:32.035Z"
+    },
+    "mtao16bc": {
+      "name": "Tiruppur Junction Narrow Intersection",
+      "coordinates": [
+        77.3411,
+        11.1085
+      ],
+      "riskLevel": "Medium",
+      "description": "Pedestrian heavy congestion causing frequent blindspot knocks.",
+      "createdAt": "2026-05-31T08:31:32.048Z"
+    },
+    "fdx87ewp": {
+      "name": "Madurai Highway Bypass Interchange",
+      "coordinates": [
+        78.1198,
+        9.9252
+      ],
+      "riskLevel": "High",
+      "description": "Sharp high-speed curve with poor nighttime illumination.",
+      "createdAt": "2026-05-31T08:31:32.061Z"
+    }
+  },
+  "speedZones": {
+    "ctp06ro7": {
+      "name": "NH-47 Speed Restricted Corridor",
+      "coordinates": [
+        77.12,
+        11.03
+      ],
+      "speedLimitKmh": 50,
+      "vehicleType": "all",
+      "createdAt": "2026-05-31T08:31:32.075Z"
+    },
+    "f8d2ttsc": {
+      "name": "Tiruppur Municipal Slow Sector",
+      "coordinates": [
+        77.35,
+        11.12
+      ],
+      "speedLimitKmh": 30,
+      "vehicleType": "all",
+      "createdAt": "2026-05-31T08:31:32.088Z"
+    },
+    "6erd4o3a": {
+      "name": "Madurai Bypass High-Speed Control Trap",
+      "coordinates": [
+        78.09,
+        9.94
+      ],
+      "speedLimitKmh": 60,
+      "vehicleType": "commercial",
+      "createdAt": "2026-05-31T08:31:32.100Z"
+    }
   }
 }
